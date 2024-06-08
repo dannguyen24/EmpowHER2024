@@ -120,6 +120,7 @@ class Player(pygame.sprite.Sprite):
         self.count = 0
         self.y_vel *= -1
 
+    #Animating the Player
     def update_sprite(self):
         sprite_sheet = "idle"
         if self.hit:
@@ -149,7 +150,7 @@ class Player(pygame.sprite.Sprite):
     def draw(self, win, offset_x):
         win.blit(self.sprite, (self.rect.x - offset_x, self.rect.y))
 
-
+#Adding Terrains and Blocks
 class Object(pygame.sprite.Sprite):
     def __init__(self, x, y, width, height, name=None):
         super().__init__()
@@ -200,6 +201,43 @@ class Fire(Object):
 
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
+
+#Add check_point
+#class Question_point(Object):
+
+
+#Add start flag
+class Start_flag(Object):
+    ANIMATION_DELAY = 17
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "start_flag")
+        self.start_flag = load_sprite_sheets("Items", "Start", width, height)
+        self.image = self.start_flag["startIdle"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "startIdle"
+
+    def idle(self):
+        self.animation_name = "startIdle"
+
+    def moving(self):
+        self.animation_name = "startMoving"
+
+    def loop(self):
+        sprites = self.start_flag[self.animation_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
+
+#Add finish flag
+#class Finish_flag(Object):
 
 
 def get_background(name):
@@ -283,16 +321,22 @@ def main(window):
 
     block_size = 96
 
-    player = Player(100, 100, 50, 50)
-    fire = Fire(100, HEIGHT - block_size - 64, 16, 32)
+    player = Player(100, HEIGHT - block_size - 64, 50, 50)
+    #Set up fire
+    fire = Fire(300, HEIGHT - block_size - 64, 16, 32)
     fire.on()
+    #Set up start flag
+    start_flag = Start_flag(100, HEIGHT - block_size - 64*2, 64, 64)
+    start_flag.moving()
+    #Set up floor
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
              for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
     objects = [*floor, Block(0, HEIGHT - block_size * 2, block_size),
-               Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire]
+               Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire, start_flag]
 
     offset_x = 0
-    scroll_area_width = 200
+    scroll_area_width = 1000
+
 
     run = True
     while run:
@@ -309,6 +353,7 @@ def main(window):
 
         player.loop(FPS)
         fire.loop()
+        start_flag.loop()
         handle_move(player, objects)
         draw(window, background, bg_image, player, objects, offset_x)
 
