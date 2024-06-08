@@ -65,7 +65,7 @@ class Player(pygame.sprite.Sprite):
         self.x_vel = 0
         self.y_vel = 0
         self.mask = None
-        self.direction = "left"
+        self.direction = "right"
         self.animation_count = 0
         self.fall_count = 0
         self.jump_count = 0
@@ -203,14 +203,41 @@ class Fire(Object):
             self.animation_count = 0
 
 #Add check_point
-#class Question_point(Object):
+class Question_point(Object):
+    ANIMATION_DELAY = 3
 
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "qPoint")
+        self.question_point = load_sprite_sheets("Items", "Questions", width, height)
+        self.image = self.question_point["question_point"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "question_point"
+
+    def idle(self):
+        self.animation_name = "question_point"
+
+    def press(self):
+        self.animation_name = "question_point"
+
+    def loop(self):
+        sprites = self.question_point[self.animation_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
 
 #Add start flag
 class Start_flag(Object):
     ANIMATION_DELAY = 17
     def __init__(self, x, y, width, height):
-        super().__init__(x, y, width, height, "start_flag")
+        super().__init__(x, y, width, height, "startFlag")
         self.start_flag = load_sprite_sheets("Items", "Start", width, height)
         self.image = self.start_flag["startIdle"][0]
         self.mask = pygame.mask.from_surface(self.image)
@@ -237,8 +264,35 @@ class Start_flag(Object):
             self.animation_count = 0
 
 #Add finish flag
-#class Finish_flag(Object):
+class Finish_flag(Object):
+    ANIMATION_DELAY = 8
 
+    def __init__(self, x, y, width, height):
+        super().__init__(x, y, width, height, "finishFlag")
+        self.finish_flag = load_sprite_sheets("Items", "End", width, height)
+        self.image = self.finish_flag["endIdle"][0]
+        self.mask = pygame.mask.from_surface(self.image)
+        self.animation_count = 0
+        self.animation_name = "endIdle"
+
+    def idle(self):
+        self.animation_name = "endIdle"
+
+    def moving(self):
+        self.animation_name = "endPressed"
+
+    def loop(self):
+        sprites = self.finish_flag[self.animation_name]
+        sprite_index = (self.animation_count //
+                        self.ANIMATION_DELAY) % len(sprites)
+        self.image = sprites[sprite_index]
+        self.animation_count += 1
+
+        self.rect = self.image.get_rect(topleft=(self.rect.x, self.rect.y))
+        self.mask = pygame.mask.from_surface(self.image)
+
+        if self.animation_count // self.ANIMATION_DELAY > len(sprites):
+            self.animation_count = 0
 
 def get_background(name):
     image = pygame.image.load(join("assets", "Background", name))
@@ -313,7 +367,17 @@ def handle_move(player, objects):
     for obj in to_check:
         if obj and obj.name == "fire":
             player.make_hit()
+        elif obj and obj.name == "finishFlag":
+            print("IT finishes")
+        # Set up question
+        elif obj and obj.name == "qPoint":
+            if keys[pygame.K_f]:
+                print("This is the question")
 
+
+#When reach the finishing line
+def winner(player):
+    player.move(0,0)
 
 def main(window):
     clock = pygame.time.Clock()
@@ -321,22 +385,29 @@ def main(window):
 
     block_size = 96
 
-    player = Player(100, HEIGHT - block_size - 64, 50, 50)
+    player = Player(220, HEIGHT - block_size - 64, 50, 50)
     #Set up fire
-    fire = Fire(300, HEIGHT - block_size - 64, 16, 32)
+    fire = Fire(450, HEIGHT - block_size - 64, 16, 32)
     fire.on()
     #Set up start flag
-    start_flag = Start_flag(100, HEIGHT - block_size - 64*2, 64, 64)
+    start_pos = 100
+    start_flag = Start_flag(start_pos, HEIGHT - block_size - 64 * 2, 64, 64)
     start_flag.moving()
+    #Set up finish flag
+    finish_pos = WIDTH * 2 - block_size - 64 * 2
+    print("finish flag pos: " + str(WIDTH * 2 - block_size - 64 * 2))
+    finish_flag = Finish_flag(finish_pos, HEIGHT - block_size - 64 * 2, 64, 64)
+    finish_flag.moving()
+    #Set up Questions
+    question_point = Question_point(500, HEIGHT - block_size - 64, 32, 64)
+    question_point.idle()
     #Set up floor
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
-             for i in range(-WIDTH // block_size, (WIDTH * 2) // block_size)]
-    objects = [*floor, Block(0, HEIGHT - block_size * 2, block_size),
-               Block(block_size * 3, HEIGHT - block_size * 4, block_size), fire, start_flag]
+             for i in range(-WIDTH // block_size, (WIDTH * 3) // block_size)]
+    objects = [*floor, fire, start_flag, finish_flag, question_point]
 
     offset_x = 0
-    scroll_area_width = 1000
-
+    scroll_area_width = 500
 
     run = True
     while run:
@@ -348,18 +419,32 @@ def main(window):
                 break
 
             if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RIGHT:
+                    direction = 1
+                if event.key == pygame.K_LEFT:
+                    direction = -1
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
+            if event.type == pygame.KEYUP:
+                if event.key == pygame.K_RIGHT:
+                    direction = 0
+                if event.key == pygame.K_LEFT:
+                    direction = 0
 
         player.loop(FPS)
         fire.loop()
         start_flag.loop()
+        finish_flag.loop()
         handle_move(player, objects)
         draw(window, background, bg_image, player, objects, offset_x)
 
-        if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0) or (
-                (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0):
+        if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0 and offset_x + scroll_area_width + 200 <= finish_pos):
             offset_x += player.x_vel
+        elif (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0 and offset_x + scroll_area_width >= start_pos:
+            offset_x += player.x_vel
+
+
+        print(offset_x)
 
     pygame.quit()
     quit()
