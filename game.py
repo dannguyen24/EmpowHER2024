@@ -1,17 +1,21 @@
+# code set up
+# os use for loading images
 import os
 import random
 import math
 import pygame
 from os import listdir
 from os.path import isfile, join
-pygame.init()
 
+pygame.init()
+# pygame.display.set_caption sets the game window title. 
 pygame.display.set_caption("Platformer")
 
 WIDTH, HEIGHT = 1000, 800
-FPS = 60
-PLAYER_VEL = 5
+FPS = 60    # frame per second
+PLAYER_VEL = 5  # player velocity
 
+#pygame.display.set_mode sets the window size.
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 
 
@@ -379,6 +383,24 @@ def handle_move(player, objects):
 def winner(player):
     player.move(0,0)
 
+    
+class QuestionBox:
+    def __init__(self, question, correct_answer):
+        self.question = question
+        self.correct_answer = correct_answer
+        self.answer = ""
+
+    def display(self):
+        # display the question box and take input for the answer
+        # print the question and take input from the console
+        print("Question:", self.question)
+        self.answer = input("Your answer: ")
+
+    def check_answer(self):
+        # Check if the given answer matches the correct answer
+        return self.answer.strip().lower() == self.correct_answer.lower()
+
+# Main function
 def main(window):
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
@@ -409,10 +431,13 @@ def main(window):
     offset_x = 0
     scroll_area_width = 500
 
+    question = QuestionBox("What is 2 + 2?", "4")  # Example question
+    question_displayed = False
+
     run = True
     while run:
         clock.tick(FPS)
-
+        # Checking for inputing event
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -431,10 +456,25 @@ def main(window):
                 if event.key == pygame.K_LEFT:
                     direction = 0
 
+            if pygame.sprite.collide_rect(player, fire):
+            # Display question box only if not already displayed
+                if not question_displayed:
+                    question.display()
+                    question_displayed = True
+
+                    # Check the answer
+                    if question.check_answer():
+                        print("Correct Answer! You can continue.")
+                        # If the answer is correct, you can continue the game
+                        question_displayed = False  # Close the question box
+                    else:
+                        print("Incorrect Answer! Try again.")
+        
         player.loop(FPS)
         fire.loop()
         start_flag.loop()
         finish_flag.loop()
+        
         handle_move(player, objects)
         draw(window, background, bg_image, player, objects, offset_x)
 
