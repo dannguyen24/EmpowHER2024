@@ -402,36 +402,54 @@ class QuestionBox:
         return self.answer.strip().lower() == self.correct_answer.lower()
     
 def display_question(window, question):
-    font = pygame.font.SysFont('Arial', 30)
+    # Set up question window
+    QUESTION_WINDOW_WIDTH, QUESTION_WINDOW_HEIGHT = 1000, 200
+    question_window = pygame.display.set_mode((QUESTION_WINDOW_WIDTH, QUESTION_WINDOW_HEIGHT))
+    pygame.display.set_caption("Question")
+
+    background_color = pygame.Color('gray12')
     text_color = pygame.Color('white')
+    input_box_color = pygame.Color('lightskyblue3')
+
+    input_box = pygame.Rect(50, 100, 300, 40)
+    color_inactive = pygame.Color('lightskyblue3')
+    color_active = pygame.Color('dodgerblue2')
+    color = color_inactive
     active = False
     text = ''
     done = False
 
+    clock = pygame.time.Clock()
     while not done:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                pygame.quit()
-                exit()
+                done = True  # Close the question window
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_RETURN:
-                    done = True
-                elif event.key == pygame.K_ESCAPE:
-                    done = True
+                    # Return the entered text when the user presses Enter
+                    return text
                 elif event.key == pygame.K_BACKSPACE:
+                    # Remove a character when the user presses Backspace
                     text = text[:-1]
                 else:
+                    # Add characters to the input box
                     text += event.unicode
 
-        window.fill((0, 0, 0))  # Clear the screen with black
+        question_window.fill(background_color)  # Fill the window with background color
+        # Draw the input box
+        pygame.draw.rect(question_window, color, input_box, 2)
+        # Render the question text
+        font = pygame.font.SysFont('Arial', 24)
         question_surface = font.render(question, True, text_color)
-        window.blit(question_surface, (WIDTH // 2 - question_surface.get_width() // 2, HEIGHT // 2 - 50))
-
-        # Display the entered text
+        question_window.blit(question_surface, (50, 50))
+        # Render the entered text
         txt_surface = font.render(text, True, text_color)
-        window.blit(txt_surface, (WIDTH // 2 - txt_surface.get_width() // 2, HEIGHT // 2 + 50))
-
+        question_window.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
+        
         pygame.display.flip()
+
+    # Return None if the window is closed without submitting the answer
+    return None
 # Câu hỏi
 questions = [
     ("Đơn vị cơ bản của sự sống là gì?", "Tế bào"),
@@ -454,39 +472,52 @@ def main(window):
 
     player = Player(220, HEIGHT - block_size - 64, 50, 50)
     
-    #Set up fire
+    # Set up fire
     fire = Fire(450, HEIGHT - block_size - 64, 16, 32)
     fire.on()
 
-    #Set up start flag
+    # Set up start flag
     start_pos = 100
     start_flag = Start_flag(start_pos, HEIGHT - block_size - 64 * 2, 64, 64)
     start_flag.moving()
 
-    #Set up finish flag
+    # Set up finish flag
     finish_pos = WIDTH * 2 - block_size - 64 * 2
     print("finish flag pos: " + str(WIDTH * 2 - block_size - 64 * 2))
     finish_flag = Finish_flag(finish_pos, HEIGHT - block_size - 64 * 2, 64, 64)
     finish_flag.moving()
 
-    #Set up Questions
-    question_point = Question_point(600, HEIGHT - block_size - 64, 32, 64)
-    question_point.idle()
-    #Set up floor
+    question_points = []
+    # Set up Questions
+    question_point1 = Question_point(300, HEIGHT - block_size - 64, 32, 64)
+    question_points.append(question_point1)
+    question_point1.idle()
+
+    question_point2 = Question_point(500, HEIGHT - block_size - 64, 32, 64)
+    question_points.append(question_point2)
+    question_point2.idle()
+
+    question_point3 = Question_point(700, HEIGHT - block_size - 64, 32, 64)
+    question_points.append(question_point3)
+    question_point3.idle()
+
+    question_point4 = Question_point(900, HEIGHT - block_size - 64, 32, 64)
+    question_points.append(question_point4)
+    question_point4.idle()
+    
+    # Set up floor
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
              for i in range(-WIDTH // block_size, (WIDTH * 3) // block_size)]
-    objects = [*floor, fire, start_flag, finish_flag, question_point]
+    objects = [*floor, start_flag, finish_flag, question_point1, question_point2, question_point3, question_point4]
 
     offset_x = 0
     scroll_area_width = 500
 
-    question = QuestionBox("What is 2 + 2?", "4")  # Example question
     question_displayed = False
 
     run = True
     while run:
         clock.tick(FPS)
-        # Checking for inputing event
         direction = 0  
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -500,17 +531,13 @@ def main(window):
                     direction = -1
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
-        if pygame.sprite.collide_rect(player, question_point):
-    # Display question box only if not already displayed
-            if not question_displayed:
-                display_question(window, questions[0][0])
-                question_displayed = True
-            # if event.type == pygame.KEYUP:
-            #     if event.key == pygame.K_RIGHT:
-            #         direction = 0
-            #     if event.key == pygame.K_LEFT:
-            #         direction = 0
-
+                    
+        # Check collision with question points
+        for i in range(len(question_points)):
+            if pygame.sprite.collide_rect(player, question_points[i]):
+                if not question_displayed:
+                    display_question(window, questions[i][0])  # Assuming questions is defined elsewhere
+                    question_displayed = True
         
         player.loop(FPS)
         fire.loop()
@@ -524,7 +551,6 @@ def main(window):
             offset_x += player.x_vel
         elif (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0 and offset_x + scroll_area_width >= start_pos:
             offset_x += player.x_vel
-
 
         print(offset_x)
 
