@@ -2,6 +2,7 @@ import os
 import random
 import math
 import pygame
+import button
 from os import listdir
 from os.path import isfile, join
 
@@ -14,7 +15,6 @@ QUIZ_COLOR = "#6DA4AA"
 CHOICE_COLOR = "#647D87"
 RED = "#BF3131"
 GREEN = "#0A6847"
-index = 0
 pygame.display.set_caption("New game")
 window = pygame.display.set_mode((WIDTH, HEIGHT))
 class Game:
@@ -24,7 +24,8 @@ class Game:
         self.game_state_manager = GameStateManager('normal')
         self.normal = Normal(window, self.game_state_manager)
         self.quiz = Quiz(window, self.game_state_manager)
-        self.states = {'normal': self.normal, 'quiz': self.quiz}
+        self.answered = Answered(window, self.game_state_manager)
+        self.states = {'normal': self.normal, 'quiz': self.quiz, 'answered': self.answered}
 
     def run(self):
         background, bg_image = get_background("Blue.png")
@@ -77,7 +78,6 @@ class Game:
                 offset_x += player.x_vel
 
             pygame.display.update()
-            #self.clock.tick(FPS)
 
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
@@ -361,11 +361,18 @@ class Finish_flag(Object):
 class GameStateManager:
     def __init__(self, currentState):
         self.currentState = currentState
+        self.correct = None
+        self.cur_ans = None
     def get_state(self):
         return self.currentState
-    def set_state(self, currentState):
+    def get_cur_ans(self):
+        return self.cur_ans
+    def set_state(self, currentState, cur_ans, correct):
         print("This is set state")
         self.currentState = currentState
+        self.correct = correct
+        self.cur_ans = cur_ans
+        print(self.cur_ans)
 
 def get_background(name):
     image = pygame.image.load(join("assets", "Background", name))
@@ -426,13 +433,13 @@ quiz_data = {
         "choices": ["DNA", "Cell"],
         "ans": "Cell"
     }
+
 def draw_quiz(window):
-    print("draw quiz now")
     current_question = list(quiz_data.values())[0]
     current_answer = list(quiz_data.values())[2]
     current_question_object = FONT.render(current_question, True, "white")
     current_question_rect = current_question_object.get_rect(center=(500,200))
-    current_index_object = FONT.render(f"{index+1}/{len(quiz_data)}", True, "white")
+    #current_index_object = FONT.render(f"{index+1}/{len(quiz_data)}", True, "white")
 
     # Set rectangle dimensions and position
     question_rect_width = 800  # Adjust these values as needed
@@ -442,19 +449,40 @@ def draw_quiz(window):
     pygame.draw.rect(window, QUIZ_COLOR, box)
     window.blit(current_question_object, current_question_rect)
 
+    return current_answer, question_rect_width
+
+def draw_button(correct_answer, current_answer, question_rect_width, active_answered, correct):
     #Set choices
+    cur = current_answer
     list_of_choices = list(quiz_data.values())[1]
-    rendered_choices = []
-    for choice in list_of_choices:
-        rendered_choices.append(FONT.render(choice, True, "white"))
-
     positions = [(295, 400), (705, 400), (295, 550), (705, 550)]
-    choice_rect = [choice.get_rect(center=pos) for pos, choice in zip(positions, rendered_choices)]
-
     choice_rect_width = 350
     choice_rect_height = 100
-    choice_boxes = []
-    for i in range(4):  # Assuming 4 choices
+    buttons = []
+    for choice, pos in zip(list_of_choices, positions):
+        if active_answered:
+            if not correct:
+                if choice == correct_answer:
+                    buttons.append(
+                        button.Button(choice, pos, FONT, "white", GREEN, choice_rect_width, choice_rect_height))
+                if choice == cur:
+                    print("dhasddashs")
+                    buttons.append(
+                        button.Button(choice, pos, FONT, "white", RED, choice_rect_width, choice_rect_height))
+                else:
+                    buttons.append(
+                        button.Button(choice, pos, FONT, "white", CHOICE_COLOR, choice_rect_width, choice_rect_height))
+            elif correct:
+                if choice == correct_answer:
+                    buttons.append(button.Button(choice, pos, FONT, "white", GREEN, choice_rect_width, choice_rect_height))
+                else:
+                    buttons.append(
+                        button.Button(choice, pos, FONT, "white", CHOICE_COLOR, choice_rect_width, choice_rect_height))
+        else:
+            buttons.append(button.Button(choice, pos, FONT, "white", CHOICE_COLOR, choice_rect_width, choice_rect_height))
+
+    i = 0
+    for butt in buttons:
         # Calculate centered x-coordinate based on choice_rect_width
         if i % 2 == 0:
             x_pos = (WIDTH - question_rect_width) // 2 + 20
@@ -465,24 +493,32 @@ def draw_quiz(window):
             y_pos = (HEIGHT - choice_rect_height) // 2
         else:
             y_pos = (HEIGHT - choice_rect_height) // 2 + 150
-
-        choice_boxes.append(pygame.Rect(x_pos, y_pos, choice_rect_width, choice_rect_height))
-
-    for box in choice_boxes:
-        pygame.draw.rect(window, CHOICE_COLOR, box)
-
-    for obj, rect in zip(rendered_choices, choice_rect):
-        window.blit(obj, rect)
+        butt.draw(window, x_pos, y_pos)
+        i = i + 1
 
     pygame.display.update()
 
-    return current_answer, choice_boxes
+    return buttons
 
-def answer_question():
-    mouse = pygame.mouse.get_pressed()[0]
-    answer, choice_boxes = draw_quiz(window)
-    #if mouse and :
-        #if
+def answer_question(game_state_manager):
+    answer, question_width = draw_quiz(window)
+    buttons = draw_button(answer, "", question_width, False, False)
+
+    for butt in buttons:
+        if butt.press_button():
+            if butt.answer != answer:
+                butt.active = True
+                butt.set_bg_color(RED)
+                butt.draw(window, butt.x_pos, butt.y_pos)
+                print(butt.answer)
+                game_state_manager.set_state('answered', butt.answer, False)
+            else:
+                butt.active = True
+                butt.set_bg_color(GREEN)
+                butt.draw(window, butt.x_pos, butt.y_pos)
+                print("CORRECT")
+                game_state_manager.set_state('answered', butt.answer, True)
+
 
 
 def handle_move(player, objects, game_state_manager):
@@ -509,7 +545,7 @@ def handle_move(player, objects, game_state_manager):
         elif obj and obj.name == "qPoint":
             if keys[pygame.K_f]:
                 print("press f")
-                game_state_manager.set_state('quiz')
+                game_state_manager.set_state('quiz', "", False)
 
 
 #When reach the finishing line
@@ -520,15 +556,33 @@ class Quiz:
     def __init__(self, display, game_state_manager):
         self.display = display
         self.game_state_manager = game_state_manager
-        self.correct_answer = False
+        self.current_answer = self.game_state_manager.cur_ans
+        self.correct = self.game_state_manager.correct
+
     def run(self, window,  player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
         self.display.fill('#FF9843')
-        answer_question()
+        answer_question(self.game_state_manager)
+
+class Answered:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
+        self.current_answer = game_state_manager.get_cur_ans()
+        self.correct = self.game_state_manager.correct
+
+    def run(self, window, player, fire, start_flag, finish_flag, background, bg_image, objects, offset_x):
+        self.display.fill('#FF9843')
+        answer, width = draw_quiz(window)
+        buttons = draw_button(answer, self.current_answer, width, True, self.correct)
+        if pygame.key.get_pressed()[pygame.K_SPACE]:
+            self.game_state_manager.set_state('normal', "", False)
 
 class Normal:
     def __init__(self, display, game_state_manager):
         self.display = display
         self.game_state_manager = game_state_manager
+        self.current_answer = self.game_state_manager.cur_ans
+        self.correct = self.game_state_manager.correct
 
     def run(self, window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
         player.loop(FPS)
