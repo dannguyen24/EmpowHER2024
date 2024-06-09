@@ -4,20 +4,83 @@ import math
 import pygame
 from os import listdir
 from os.path import isfile, join
+
 pygame.init()
-
-pygame.display.set_caption("Platformer")
-
 WIDTH, HEIGHT = 1000, 800
 FPS = 60
 PLAYER_VEL = 5
-
+FONT = pygame.font.SysFont("Arial", 30)
+QUIZ_COLOR = "#6DA4AA"
+CHOICE_COLOR = "#647D87"
+RED = "#BF3131"
+GREEN = "#0A6847"
+index = 0
+pygame.display.set_caption("New game")
 window = pygame.display.set_mode((WIDTH, HEIGHT))
+class Game:
+    def __init__(self):
+        self.clock = pygame.time.Clock()
 
+        self.game_state_manager = GameStateManager('normal')
+        self.normal = Normal(window, self.game_state_manager)
+        self.quiz = Quiz(window, self.game_state_manager)
+        self.states = {'normal': self.normal, 'quiz': self.quiz}
+
+    def run(self):
+        background, bg_image = get_background("Blue.png")
+
+        block_size = 96
+
+        player = Player(220, HEIGHT - block_size - 64, 50, 50)
+        # Set up fire
+        fire = Fire(450, HEIGHT - block_size - 64, 16, 32)
+        fire.on()
+        # Set up start flag
+        start_pos = 100
+        start_flag = Start_flag(start_pos, HEIGHT - block_size - 64 * 2, 64, 64)
+        start_flag.moving()
+        # Set up finish flag
+        finish_pos = WIDTH * 2 - block_size - 64 * 2
+        print("finish flag pos: " + str(WIDTH * 2 - block_size - 64 * 2))
+        finish_flag = Finish_flag(finish_pos, HEIGHT - block_size - 64 * 2, 64, 64)
+        finish_flag.moving()
+        # Set up Questions
+        question_point = Question_point(500, HEIGHT - block_size - 64, 32, 64)
+        question_point.idle()
+        # Set up floor
+        floor = [Block(i * block_size, HEIGHT - block_size, block_size)
+                 for i in range(-WIDTH // block_size, (WIDTH * 3) // block_size)]
+        objects = [*floor, start_flag, finish_flag, question_point]
+
+        offset_x = 0
+        scroll_area_width = 500
+
+        while True:
+            self.clock.tick(FPS)
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    quit()
+
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE and player.jump_count < 2:
+                        player.jump()
+
+            self.states[self.game_state_manager.get_state()].run(window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x)
+
+            if (player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0 and (
+                    offset_x + scroll_area_width + 200 <= finish_pos):
+                offset_x += player.x_vel
+            elif (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0 and (
+                    offset_x + scroll_area_width >= start_pos):
+                offset_x += player.x_vel
+
+            pygame.display.update()
+            #self.clock.tick(FPS)
 
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
-
 
 def load_sprite_sheets(dir1, dir2, width, height, direction=False):
     path = join("assets", dir1, dir2)
@@ -71,6 +134,7 @@ class Player(pygame.sprite.Sprite):
         self.jump_count = 0
         self.hit = False
         self.hit_count = 0
+        self.score = 0
 
     def jump(self):
         self.y_vel = -self.GRAVITY * 8
@@ -294,6 +358,15 @@ class Finish_flag(Object):
         if self.animation_count // self.ANIMATION_DELAY > len(sprites):
             self.animation_count = 0
 
+class GameStateManager:
+    def __init__(self, currentState):
+        self.currentState = currentState
+    def get_state(self):
+        return self.currentState
+    def set_state(self, currentState):
+        print("This is set state")
+        self.currentState = currentState
+
 def get_background(name):
     image = pygame.image.load(join("assets", "Background", name))
     _, _, width, height = image.get_rect()
@@ -305,7 +378,6 @@ def get_background(name):
             tiles.append(pos)
 
     return tiles, image
-
 
 def draw(window, background, bg_image, player, objects, offset_x):
     for tile in background:
@@ -348,8 +420,72 @@ def collide(player, objects, dx):
     player.update()
     return collided_object
 
+#Temporary
+quiz_data = {
+        "questions": "What do we call the most basic structural unit of living things?",
+        "choices": ["DNA", "Cell"],
+        "ans": "Cell"
+    }
+def draw_quiz(window):
+    print("draw quiz now")
+    current_question = list(quiz_data.values())[0]
+    current_answer = list(quiz_data.values())[2]
+    current_question_object = FONT.render(current_question, True, "white")
+    current_question_rect = current_question_object.get_rect(center=(500,200))
+    current_index_object = FONT.render(f"{index+1}/{len(quiz_data)}", True, "white")
 
-def handle_move(player, objects):
+    # Set rectangle dimensions and position
+    question_rect_width = 800  # Adjust these values as needed
+    question_rect_height = 600
+    box = pygame.Rect((WIDTH - question_rect_width) // 2, (HEIGHT - question_rect_height) // 2, question_rect_width,
+                      question_rect_height)
+    pygame.draw.rect(window, QUIZ_COLOR, box)
+    window.blit(current_question_object, current_question_rect)
+
+    #Set choices
+    list_of_choices = list(quiz_data.values())[1]
+    rendered_choices = []
+    for choice in list_of_choices:
+        rendered_choices.append(FONT.render(choice, True, "white"))
+
+    positions = [(295, 400), (705, 400), (295, 550), (705, 550)]
+    choice_rect = [choice.get_rect(center=pos) for pos, choice in zip(positions, rendered_choices)]
+
+    choice_rect_width = 350
+    choice_rect_height = 100
+    choice_boxes = []
+    for i in range(4):  # Assuming 4 choices
+        # Calculate centered x-coordinate based on choice_rect_width
+        if i % 2 == 0:
+            x_pos = (WIDTH - question_rect_width) // 2 + 20
+        else:
+            x_pos = 530
+
+        if i == 0 or i == 1:
+            y_pos = (HEIGHT - choice_rect_height) // 2
+        else:
+            y_pos = (HEIGHT - choice_rect_height) // 2 + 150
+
+        choice_boxes.append(pygame.Rect(x_pos, y_pos, choice_rect_width, choice_rect_height))
+
+    for box in choice_boxes:
+        pygame.draw.rect(window, CHOICE_COLOR, box)
+
+    for obj, rect in zip(rendered_choices, choice_rect):
+        window.blit(obj, rect)
+
+    pygame.display.update()
+
+    return current_answer, choice_boxes
+
+def answer_question():
+    mouse = pygame.mouse.get_pressed()[0]
+    answer, choice_boxes = draw_quiz(window)
+    #if mouse and :
+        #if
+
+
+def handle_move(player, objects, game_state_manager):
     keys = pygame.key.get_pressed()
 
     player.x_vel = 0
@@ -372,83 +508,36 @@ def handle_move(player, objects):
         # Set up question
         elif obj and obj.name == "qPoint":
             if keys[pygame.K_f]:
-                print("This is the question")
+                print("press f")
+                game_state_manager.set_state('quiz')
 
 
 #When reach the finishing line
 def winner(player):
     player.move(0,0)
 
-def main(window):
-    clock = pygame.time.Clock()
-    background, bg_image = get_background("Blue.png")
+class Quiz:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
+        self.correct_answer = False
+    def run(self, window,  player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
+        self.display.fill('#FF9843')
+        answer_question()
 
-    block_size = 96
+class Normal:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
 
-    player = Player(220, HEIGHT - block_size - 64, 50, 50)
-    #Set up fire
-    fire = Fire(450, HEIGHT - block_size - 64, 16, 32)
-    fire.on()
-    #Set up start flag
-    start_pos = 100
-    start_flag = Start_flag(start_pos, HEIGHT - block_size - 64 * 2, 64, 64)
-    start_flag.moving()
-    #Set up finish flag
-    finish_pos = WIDTH * 2 - block_size - 64 * 2
-    print("finish flag pos: " + str(WIDTH * 2 - block_size - 64 * 2))
-    finish_flag = Finish_flag(finish_pos, HEIGHT - block_size - 64 * 2, 64, 64)
-    finish_flag.moving()
-    #Set up Questions
-    question_point = Question_point(500, HEIGHT - block_size - 64, 32, 64)
-    question_point.idle()
-    #Set up floor
-    floor = [Block(i * block_size, HEIGHT - block_size, block_size)
-             for i in range(-WIDTH // block_size, (WIDTH * 3) // block_size)]
-    objects = [*floor, fire, start_flag, finish_flag, question_point]
-
-    offset_x = 0
-    scroll_area_width = 500
-
-    run = True
-    while run:
-        clock.tick(FPS)
-
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                run = False
-                break
-
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RIGHT:
-                    direction = 1
-                if event.key == pygame.K_LEFT:
-                    direction = -1
-                if event.key == pygame.K_SPACE and player.jump_count < 2:
-                    player.jump()
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_RIGHT:
-                    direction = 0
-                if event.key == pygame.K_LEFT:
-                    direction = 0
-
+    def run(self, window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
         player.loop(FPS)
         fire.loop()
         start_flag.loop()
         finish_flag.loop()
-        handle_move(player, objects)
+        handle_move(player, objects, self.game_state_manager)
         draw(window, background, bg_image, player, objects, offset_x)
 
-        if ((player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0 and offset_x + scroll_area_width + 200 <= finish_pos):
-            offset_x += player.x_vel
-        elif (player.rect.left - offset_x <= scroll_area_width) and player.x_vel < 0 and offset_x + scroll_area_width >= start_pos:
-            offset_x += player.x_vel
-
-
-        print(offset_x)
-
-    pygame.quit()
-    quit()
-
-
 if __name__ == "__main__":
-    main(window)
+    game = Game()
+    game.run()
