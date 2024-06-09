@@ -383,6 +383,7 @@ def handle_move(player, objects):
 def winner(player):
     player.move(0,0)
 
+# Main function
     
 class QuestionBox:
     def __init__(self, question, correct_answer):
@@ -392,15 +393,63 @@ class QuestionBox:
 
     def display(self):
         # display the question box and take input for the answer
-        # print the question and take input from the console
+        #  print the question and take input from the console
         print("Question:", self.question)
         self.answer = input("Your answer: ")
 
     def check_answer(self):
         # Check if the given answer matches the correct answer
         return self.answer.strip().lower() == self.correct_answer.lower()
+def display_question(text, font, text_col, x, y):
+    img = font.render(text, True, text_col)
+    screen.blit(img, (x, y))
 
-# Main function
+    # while not done:
+    #     for event in pygame.event.get():
+    #         if event.type == pygame.QUIT:
+    #             pygame.quit()
+    #             exit()
+            # if event.type == pygame.MOUSEBUTTONDOWN:
+            #     if input_box.collidepoint(event.pos):
+            #         active = not active
+            #     else:
+            #         active = False
+            #     color = color_active if active else color_inactive
+            # if event.type == pygame.KEYDOWN:
+            #     if active:
+            #         if event.key == pygame.K_RETURN:
+            #             return text
+            #         elif event.key == pygame.K_BACKSPACE:
+            #             text = text[:-1]
+            #         else:
+                        text += event.unicode
+
+        window.fill((0, 0, 0))  # Clear the screen with black
+        question_surface = font.render(question, True, pygame.Color('white'))
+        window.blit(question_surface, (WIDTH // 2 - question_surface.get_width() // 2, HEIGHT // 2 - 50))
+        
+        txt_surface = font.render(text, True, color)
+        width = max(300, txt_surface.get_width() + 10)
+        input_box.w = width
+        window.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
+        pygame.draw.rect(window, color, input_box, 2)
+
+        pygame.display.flip()
+        pygame.time.Clock().tick(30)
+# Câu hỏi
+questions = [
+    ("Đơn vị cơ bản của sự sống là gì?", "Tế bào"),
+    ("Cấu trúc nào kiểm soát sự ra vào của các chất trong tế bào?", "Màng tế bào"),
+    ("Quá trình quang hợp diễn ra ở đâu trong tế bào thực vật?", "Lục lạp"),
+    ("Bào quan nào được gọi là nhà máy điện của tế bào?", "Ty thể"),
+    ("Bào quan nào chịu trách nhiệm tổng hợp protein?", "Ribosome"),
+    ("Cấu trúc nào chứa vật liệu di truyền của tế bào?", "Nhân"),
+    ("Chất giống như thạch bên trong tế bào là gì?", "Tế bào chất"),
+    ("Cấu trúc nào giúp duy trì hình dạng và hỗ trợ tế bào?", "Khung tế bào"),
+    ("Bào quan nào tiêu hóa và phân giải chất thải trong tế bào động vật?", "Lysosome"),
+    ("Quá trình tế bào phân chia được gọi là gì?", "Phân chia tế bào"),
+]
+
 def main(window):
     clock = pygame.time.Clock()
     background, bg_image = get_background("Blue.png")
@@ -408,20 +457,24 @@ def main(window):
     block_size = 96
 
     player = Player(220, HEIGHT - block_size - 64, 50, 50)
+    
     #Set up fire
     fire = Fire(450, HEIGHT - block_size - 64, 16, 32)
     fire.on()
+
     #Set up start flag
     start_pos = 100
     start_flag = Start_flag(start_pos, HEIGHT - block_size - 64 * 2, 64, 64)
     start_flag.moving()
+
     #Set up finish flag
     finish_pos = WIDTH * 2 - block_size - 64 * 2
     print("finish flag pos: " + str(WIDTH * 2 - block_size - 64 * 2))
     finish_flag = Finish_flag(finish_pos, HEIGHT - block_size - 64 * 2, 64, 64)
     finish_flag.moving()
+
     #Set up Questions
-    question_point = Question_point(500, HEIGHT - block_size - 64, 32, 64)
+    question_point = Question_point(600, HEIGHT - block_size - 64, 32, 64)
     question_point.idle()
     #Set up floor
     floor = [Block(i * block_size, HEIGHT - block_size, block_size)
@@ -438,6 +491,7 @@ def main(window):
     while run:
         clock.tick(FPS)
         # Checking for inputing event
+        direction = 0  
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
@@ -450,25 +504,19 @@ def main(window):
                     direction = -1
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
+                if pygame.sprite.collide_rect(player, question_point):
+                    # Display question box only if not already displayed
+                    if not question_displayed:
+                        display_question(window, questions[0])
+                        question_displayed = True
+                        # Check the answer
+
             if event.type == pygame.KEYUP:
                 if event.key == pygame.K_RIGHT:
                     direction = 0
                 if event.key == pygame.K_LEFT:
                     direction = 0
 
-            if pygame.sprite.collide_rect(player, fire):
-            # Display question box only if not already displayed
-                if not question_displayed:
-                    question.display()
-                    question_displayed = True
-
-                    # Check the answer
-                    if question.check_answer():
-                        print("Correct Answer! You can continue.")
-                        # If the answer is correct, you can continue the game
-                        question_displayed = False  # Close the question box
-                    else:
-                        print("Incorrect Answer! Try again.")
         
         player.loop(FPS)
         fire.loop()
