@@ -400,42 +400,38 @@ class QuestionBox:
     def check_answer(self):
         # Check if the given answer matches the correct answer
         return self.answer.strip().lower() == self.correct_answer.lower()
-def display_question(text, font, text_col, x, y):
-    img = font.render(text, True, text_col)
-    screen.blit(img, (x, y))
+    
+def display_question(window, question):
+    font = pygame.font.SysFont('Arial', 30)
+    text_color = pygame.Color('white')
+    active = False
+    text = ''
+    done = False
 
-    # while not done:
-    #     for event in pygame.event.get():
-    #         if event.type == pygame.QUIT:
-    #             pygame.quit()
-    #             exit()
-            # if event.type == pygame.MOUSEBUTTONDOWN:
-            #     if input_box.collidepoint(event.pos):
-            #         active = not active
-            #     else:
-            #         active = False
-            #     color = color_active if active else color_inactive
-            # if event.type == pygame.KEYDOWN:
-            #     if active:
-            #         if event.key == pygame.K_RETURN:
-            #             return text
-            #         elif event.key == pygame.K_BACKSPACE:
-            #             text = text[:-1]
-            #         else:
-                        text += event.unicode
+    while not done:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                exit()
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    done = True
+                elif event.key == pygame.K_ESCAPE:
+                    done = True
+                elif event.key == pygame.K_BACKSPACE:
+                    text = text[:-1]
+                else:
+                    text += event.unicode
 
         window.fill((0, 0, 0))  # Clear the screen with black
-        question_surface = font.render(question, True, pygame.Color('white'))
+        question_surface = font.render(question, True, text_color)
         window.blit(question_surface, (WIDTH // 2 - question_surface.get_width() // 2, HEIGHT // 2 - 50))
-        
-        txt_surface = font.render(text, True, color)
-        width = max(300, txt_surface.get_width() + 10)
-        input_box.w = width
-        window.blit(txt_surface, (input_box.x + 5, input_box.y + 5))
-        pygame.draw.rect(window, color, input_box, 2)
+
+        # Display the entered text
+        txt_surface = font.render(text, True, text_color)
+        window.blit(txt_surface, (WIDTH // 2 - txt_surface.get_width() // 2, HEIGHT // 2 + 50))
 
         pygame.display.flip()
-        pygame.time.Clock().tick(30)
 # Câu hỏi
 questions = [
     ("Đơn vị cơ bản của sự sống là gì?", "Tế bào"),
@@ -504,18 +500,16 @@ def main(window):
                     direction = -1
                 if event.key == pygame.K_SPACE and player.jump_count < 2:
                     player.jump()
-                if pygame.sprite.collide_rect(player, question_point):
-                    # Display question box only if not already displayed
-                    if not question_displayed:
-                        display_question(window, questions[0])
-                        question_displayed = True
-                        # Check the answer
-
-            if event.type == pygame.KEYUP:
-                if event.key == pygame.K_RIGHT:
-                    direction = 0
-                if event.key == pygame.K_LEFT:
-                    direction = 0
+        if pygame.sprite.collide_rect(player, question_point):
+    # Display question box only if not already displayed
+            if not question_displayed:
+                display_question(window, questions[0][0])
+                question_displayed = True
+            # if event.type == pygame.KEYUP:
+            #     if event.key == pygame.K_RIGHT:
+            #         direction = 0
+            #     if event.key == pygame.K_LEFT:
+            #         direction = 0
 
         
         player.loop(FPS)
