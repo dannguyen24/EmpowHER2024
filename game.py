@@ -11,6 +11,7 @@ WIDTH, HEIGHT = 1000, 800
 FPS = 60
 PLAYER_VEL = 5
 FONT = pygame.font.SysFont("Arial", 30)
+FONT_1 = pygame.font.SysFont("Arial", 80)
 QUIZ_COLOR = "#6DA4AA"
 CHOICE_COLOR = "#647D87"
 RED = "#BF3131"
@@ -25,7 +26,9 @@ class Game:
         self.normal = Normal(window, self.game_state_manager)
         self.quiz = Quiz(window, self.game_state_manager)
         self.answered = Answered(window, self.game_state_manager)
-        self.states = {'normal': self.normal, 'quiz': self.quiz, 'answered': self.answered}
+        self.finish = Finish(window, self.game_state_manager)
+        self.states = {'normal': self.normal, 'quiz': self.quiz, 'answered': self.answered, 'finish': self.finish}
+
 
     def run(self):
         background, bg_image = get_background("Blue.png")
@@ -42,16 +45,21 @@ class Game:
         start_flag.moving()
         # Set up finish flag
         finish_pos = WIDTH * 2 - block_size - 64 * 2
-        print("finish flag pos: " + str(WIDTH * 2 - block_size - 64 * 2))
         finish_flag = Finish_flag(finish_pos, HEIGHT - block_size - 64 * 2, 64, 64)
         finish_flag.moving()
         # Set up Questions
-        question_point = Question_point(500, HEIGHT - block_size - 64, 32, 64)
-        question_point.idle()
+        question_point1 = Question_point(500, HEIGHT - block_size - 64, 32, 64)
+        question_point1.idle()
+
+        question_point2 = Question_point(900, HEIGHT - block_size - 64, 32, 64)
+        question_point2.idle()
+
+        question_point3 = Question_point(1400, HEIGHT - block_size - 64, 32, 64)
+        question_point3.idle()
         # Set up floor
         floor = [Block(i * block_size, HEIGHT - block_size, block_size)
                  for i in range(-WIDTH // block_size, (WIDTH * 3) // block_size)]
-        objects = [*floor, start_flag, finish_flag, question_point]
+        objects = [*floor, start_flag, finish_flag, question_point1, question_point2, question_point3]
 
         offset_x = 0
         scroll_area_width = 500
@@ -70,6 +78,11 @@ class Game:
 
             self.states[self.game_state_manager.get_state()].run(window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x)
 
+            score = self.game_state_manager.get_score()
+            score_text_obj = FONT.render(f"Score: {score}", True, "black")
+            score_rect = score_text_obj.get_rect(center=(900, 50))
+            window.blit(score_text_obj, score_rect)
+
             if (player.rect.right - offset_x >= WIDTH - scroll_area_width) and player.x_vel > 0 and (
                     offset_x + scroll_area_width + 200 <= finish_pos):
                 offset_x += player.x_vel
@@ -78,6 +91,72 @@ class Game:
                 offset_x += player.x_vel
 
             pygame.display.update()
+
+class Quiz:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
+        self.current_answer, self.correct = self.game_state_manager.get_cur_ans()
+        #self.score = self.game_state_manager.get_score()
+
+    def get_cur_ans(self):
+        return self.current_answer
+    def run(self, window,  player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
+        self.display.fill('#FF9843')
+        answer_question(self.game_state_manager)
+
+class Answered:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
+        self.current_answer, self.correct = game_state_manager.get_cur_ans()
+
+    def run(self, window, player, fire, start_flag, finish_flag, background, bg_image, objects, offset_x):
+        self.current_answer, self.correct = self.game_state_manager.get_cur_ans()
+        self.display.fill('#FF9843')
+        answer, width = draw_quiz(window)
+        buttons = draw_button(answer, self.current_answer, width, True, self.correct)
+        if pygame.key.get_pressed()[pygame.K_SPACE]:
+            self.game_state_manager.set_state('normal')
+
+class Normal:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
+        self.current_answer = self.game_state_manager.cur_ans
+        self.correct = self.game_state_manager.correct
+
+    def run(self, window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
+        player.loop(FPS)
+        fire.loop()
+        start_flag.loop()
+        finish_flag.loop()
+        handle_move(player, objects, self.game_state_manager)
+        draw(window, background, bg_image, player, objects, offset_x)
+class Finish:
+    def __init__(self, display, game_state_manager):
+        self.display = display
+        self.game_state_manager = game_state_manager
+        self.current_answer = self.game_state_manager.cur_ans
+        self.correct = self.game_state_manager.correct
+        self.score = self.game_state_manager.score
+
+    def run(self, window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
+        player.loop(FPS)
+        fire.loop()
+        start_flag.loop()
+        finish_flag.loop()
+        handle_move(player, objects, self.game_state_manager)
+
+        finish_text = FONT_1.render("Finish", True, "black")
+        score_text = FONT_1.render(f"Your Score: {self.score}", True, "black")
+        finish_rect = finish_text.get_rect(center=(500,300))
+        score_rect = score_text.get_rect(center=(500,450))
+        draw(window, background, bg_image, player, objects, offset_x)
+        box = pygame.Rect((WIDTH - 800) // 2, (HEIGHT - 600) // 2, 800, 600)
+        pygame.draw.rect(window, QUIZ_COLOR, box)
+        window.blit(finish_text, finish_rect)
+        window.blit(score_text, score_rect)
 
 def flip(sprites):
     return [pygame.transform.flip(sprite, True, False) for sprite in sprites]
@@ -359,20 +438,30 @@ class Finish_flag(Object):
             self.animation_count = 0
 
 class GameStateManager:
-    def __init__(self, currentState):
-        self.currentState = currentState
-        self.correct = None
-        self.cur_ans = None
+    def __init__(self, current_state):
+        self.currentState = current_state
+        self.correct = False
+        self.cur_ans = ""
+        self.score = 0
+
+    def set_score(self, score):
+        self.score = score
+
+    def get_score(self):
+        return self.score
+
     def get_state(self):
         return self.currentState
+
     def get_cur_ans(self):
-        return self.cur_ans
-    def set_state(self, currentState, cur_ans, correct):
-        print("This is set state")
-        self.currentState = currentState
-        self.correct = correct
+        return self.cur_ans, self.correct
+
+    def set_ans(self, cur_ans, correct):
         self.cur_ans = cur_ans
-        print(self.cur_ans)
+        self.correct = correct
+
+    def set_state(self, currentState):
+        self.currentState = currentState
 
 def get_background(name):
     image = pygame.image.load(join("assets", "Background", name))
@@ -439,7 +528,6 @@ def draw_quiz(window):
     current_answer = list(quiz_data.values())[2]
     current_question_object = FONT.render(current_question, True, "white")
     current_question_rect = current_question_object.get_rect(center=(500,200))
-    #current_index_object = FONT.render(f"{index+1}/{len(quiz_data)}", True, "white")
 
     # Set rectangle dimensions and position
     question_rect_width = 800  # Adjust these values as needed
@@ -459,19 +547,21 @@ def draw_button(correct_answer, current_answer, question_rect_width, active_answ
     choice_rect_width = 350
     choice_rect_height = 100
     buttons = []
+
+    count = 0
     for choice, pos in zip(list_of_choices, positions):
         if active_answered:
             if not correct:
                 if choice == correct_answer:
                     buttons.append(
                         button.Button(choice, pos, FONT, "white", GREEN, choice_rect_width, choice_rect_height))
-                if choice == cur:
-                    print("dhasddashs")
+                elif choice == cur:
                     buttons.append(
                         button.Button(choice, pos, FONT, "white", RED, choice_rect_width, choice_rect_height))
                 else:
                     buttons.append(
                         button.Button(choice, pos, FONT, "white", CHOICE_COLOR, choice_rect_width, choice_rect_height))
+                #count = count + 1
             elif correct:
                 if choice == correct_answer:
                     buttons.append(button.Button(choice, pos, FONT, "white", GREEN, choice_rect_width, choice_rect_height))
@@ -501,6 +591,7 @@ def draw_button(correct_answer, current_answer, question_rect_width, active_answ
     return buttons
 
 def answer_question(game_state_manager):
+    cur_score = game_state_manager.get_score()  # Unpack and discard correctness
     answer, question_width = draw_quiz(window)
     buttons = draw_button(answer, "", question_width, False, False)
 
@@ -510,14 +601,17 @@ def answer_question(game_state_manager):
                 butt.active = True
                 butt.set_bg_color(RED)
                 butt.draw(window, butt.x_pos, butt.y_pos)
-                print(butt.answer)
-                game_state_manager.set_state('answered', butt.answer, False)
+                if cur_score > 0:
+                    game_state_manager.set_score(cur_score - 1)
+                game_state_manager.set_ans(butt.answer, False)
+                game_state_manager.set_state('answered')
             else:
                 butt.active = True
                 butt.set_bg_color(GREEN)
                 butt.draw(window, butt.x_pos, butt.y_pos)
-                print("CORRECT")
-                game_state_manager.set_state('answered', butt.answer, True)
+                game_state_manager.set_score(cur_score + 1)
+                game_state_manager.set_ans(butt.answer, True)
+                game_state_manager.set_state('answered')
 
 
 
@@ -540,57 +634,18 @@ def handle_move(player, objects, game_state_manager):
         if obj and obj.name == "fire":
             player.make_hit()
         elif obj and obj.name == "finishFlag":
-            print("IT finishes")
+            #print("IT finishes")
+            game_state_manager.set_state('finish')
         # Set up question
         elif obj and obj.name == "qPoint":
             if keys[pygame.K_f]:
-                print("press f")
-                game_state_manager.set_state('quiz', "", False)
+                game_state_manager.set_state('quiz')
 
 
 #When reach the finishing line
 def winner(player):
     player.move(0,0)
 
-class Quiz:
-    def __init__(self, display, game_state_manager):
-        self.display = display
-        self.game_state_manager = game_state_manager
-        self.current_answer = self.game_state_manager.cur_ans
-        self.correct = self.game_state_manager.correct
-
-    def run(self, window,  player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
-        self.display.fill('#FF9843')
-        answer_question(self.game_state_manager)
-
-class Answered:
-    def __init__(self, display, game_state_manager):
-        self.display = display
-        self.game_state_manager = game_state_manager
-        self.current_answer = game_state_manager.get_cur_ans()
-        self.correct = self.game_state_manager.correct
-
-    def run(self, window, player, fire, start_flag, finish_flag, background, bg_image, objects, offset_x):
-        self.display.fill('#FF9843')
-        answer, width = draw_quiz(window)
-        buttons = draw_button(answer, self.current_answer, width, True, self.correct)
-        if pygame.key.get_pressed()[pygame.K_SPACE]:
-            self.game_state_manager.set_state('normal', "", False)
-
-class Normal:
-    def __init__(self, display, game_state_manager):
-        self.display = display
-        self.game_state_manager = game_state_manager
-        self.current_answer = self.game_state_manager.cur_ans
-        self.correct = self.game_state_manager.correct
-
-    def run(self, window, player, fire, start_flag, finish_flag,background, bg_image, objects, offset_x):
-        player.loop(FPS)
-        fire.loop()
-        start_flag.loop()
-        finish_flag.loop()
-        handle_move(player, objects, self.game_state_manager)
-        draw(window, background, bg_image, player, objects, offset_x)
 
 if __name__ == "__main__":
     game = Game()
